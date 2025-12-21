@@ -17,9 +17,11 @@ package io.agentscope.examples.quickstart;
 
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.formatter.dashscope.DashScopeChatFormatter;
+import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.model.DashScopeChatModel;
 import io.agentscope.core.model.GenerateOptions;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.tool.Toolkit;
 
 /**
@@ -35,7 +37,7 @@ public class BasicChatExample {
                         + "You'll chat with an AI assistant powered by DashScope.");
 
         // Get API key (from environment or interactive input)
-        String apiKey = ExampleUtils.getDashScopeApiKey();
+        String apiKey = ExampleUtils.getIFlowApiKey();
 
         // Create Agent with minimal configuration
         ReActAgent agent =
@@ -43,12 +45,13 @@ public class BasicChatExample {
                         .name("Assistant")
                         .sysPrompt("You are a helpful AI assistant. Be friendly and concise.")
                         .model(
-                                DashScopeChatModel.builder()
+                                OpenAIChatModel.builder()
+                                        .baseUrl("https://apis.iflow.cn/v1")
                                         .apiKey(apiKey)
-                                        .modelName("qwen-plus")
+                                        .modelName("deepseek-v3.2")
                                         .stream(true)
-                                        .enableThinking(true)
-                                        .formatter(new DashScopeChatFormatter())
+//                                        .enableThinking(true)
+                                        .formatter(new OpenAIChatFormatter())
                                         .defaultOptions(
                                                 GenerateOptions.builder()
                                                         .thinkingBudget(1024)

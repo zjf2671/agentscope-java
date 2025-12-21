@@ -17,8 +17,10 @@ package io.agentscope.examples.quickstart;
 
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.formatter.dashscope.DashScopeChatFormatter;
+import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.model.DashScopeChatModel;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.tool.Tool;
 import io.agentscope.core.tool.ToolParam;
 import io.agentscope.core.tool.Toolkit;
@@ -39,7 +41,7 @@ public class ToolCallingExample {
                         + "The agent has access to: time checking, calculator, and search.");
 
         // Get API key
-        String apiKey = ExampleUtils.getDashScopeApiKey();
+        String apiKey = ExampleUtils.getIFlowApiKey();
 
         // Create and register tools
         Toolkit toolkit = new Toolkit();
@@ -59,12 +61,12 @@ public class ToolCallingExample {
                                         + "Use tools when needed to answer questions accurately. "
                                         + "Always explain what you're doing when using tools.")
                         .model(
-                                DashScopeChatModel.builder()
+                                OpenAIChatModel.builder()
+                                        .baseUrl("https://apis.iflow.cn/v1")
                                         .apiKey(apiKey)
-                                        .modelName("qwen-max")
-                                        .stream(true)
-                                        .enableThinking(false)
-                                        .formatter(new DashScopeChatFormatter())
+                                        .modelName("deepseek-v3.2")
+//                                        .enableThinking(false)
+                                        .formatter(new OpenAIChatFormatter())
                                         .build())
                         .toolkit(toolkit)
                         .memory(new InMemoryMemory())

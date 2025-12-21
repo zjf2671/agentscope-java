@@ -26,11 +26,13 @@ import static io.agentscope.examples.werewolf.WerewolfGameConfig.WITCH_COUNT;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.agent.AgentBase;
 import io.agentscope.core.formatter.dashscope.DashScopeMultiAgentFormatter;
+import io.agentscope.core.formatter.openai.OpenAIMultiAgentFormatter;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.model.DashScopeChatModel;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.pipeline.FanoutPipeline;
 import io.agentscope.core.pipeline.MsgHub;
 import io.agentscope.core.tool.Toolkit;
@@ -53,6 +55,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Web-enabled Werewolf Game with event emission.
@@ -67,8 +70,11 @@ public class WerewolfWebGame {
     private final GameMessages messages;
     private final LanguageConfig langConfig;
     private final WerewolfUtils utils;
+    private TTSService ttsService;
+    private Map<String, String> playerVoices;
+    private List<String> availableVoices;
 
-    private DashScopeChatModel model;
+    private OpenAIChatModel model;
     private GameState gameState;
 
     public WerewolfWebGame(GameEventEmitter emitter, LocalizationBundle bundle) {
@@ -77,6 +83,8 @@ public class WerewolfWebGame {
         this.messages = bundle.messages();
         this.langConfig = bundle.langConfig();
         this.utils = new WerewolfUtils(messages);
+        this.playerVoices = new HashMap<>();
+        this.availableVoices = new ArrayList<>();
     }
 
     public GameState getGameState() {
@@ -86,14 +94,70 @@ public class WerewolfWebGame {
     public void start() throws Exception {
         emitter.emitSystemMessage(messages.getInitializingGame());
 
-        String apiKey = System.getenv("DASHSCOPE_API_KEY");
+        String apiKey = System.getenv("IFLOW_API_KEY");
+        String baseUrl = "https://apis.iflow.cn/v1";
+
         model =
-                DashScopeChatModel.builder()
+                OpenAIChatModel.builder()
+                        .baseUrl(baseUrl)
                         .apiKey(apiKey)
                         .modelName(WerewolfGameConfig.DEFAULT_MODEL)
-                        .formatter(new DashScopeMultiAgentFormatter())
+                        .formatter(new OpenAIMultiAgentFormatter())
                         .stream(false)
                         .build();
+
+        // TTS Configuration
+        String ttsBaseUrl = System.getenv("TTS_BASE_URL");
+        if (ttsBaseUrl == null || ttsBaseUrl.isEmpty()) {
+            ttsBaseUrl = baseUrl;
+        }
+        String ttsApiKey = System.getenv("TTS_API_KEY");
+        if (ttsApiKey == null || ttsApiKey.isEmpty()) {
+            ttsApiKey = apiKey;
+        }
+
+        String ttsModel = System.getenv("TTS_MODEL");
+        if (ttsModel == null || ttsModel.isEmpty()) {
+            ttsModel = "IndexTeam/IndexTTS-2";
+        }
+
+        // Initialize Available Voices
+        String ttsVoicesEnv = System.getenv("TTS_VOICES");
+        if (ttsVoicesEnv != null && !ttsVoicesEnv.isEmpty()) {
+            String[] voices = ttsVoicesEnv.split(",");
+            for (String v : voices) {
+                if (!v.trim().isEmpty()) {
+                    availableVoices.add(v.trim());
+                }
+            }
+        } else {
+            // Default voices logic
+            if ("tts-1".equals(ttsModel) || "tts-1-hd".equals(ttsModel)) {
+                // OpenAI standard voices
+                availableVoices.add("alloy");
+                availableVoices.add("echo");
+                availableVoices.add("fable");
+                availableVoices.add("onyx");
+                availableVoices.add("nova");
+                availableVoices.add("shimmer");
+            } else {
+                // Assume SiliconFlow or similar requiring model:voice format
+                // Default voices for SiliconFlow / CosyVoice2
+                String[] standardNames = {"alex", "anna", "bella", "benjamin", "charles", "claire", "david", "diana"};
+                for (String name : standardNames) {
+                    availableVoices.add(ttsModel + ":" + name);
+                }
+            }
+        }
+        
+        // Fallback if empty
+        if (availableVoices.isEmpty()) {
+            availableVoices.add("alex");
+        }
+
+        ttsService = new TTSService(ttsApiKey, ttsBaseUrl, ttsModel);
+        System.out.println("TTS Service initialized with Base URL: " + ttsBaseUrl + ", Model: " + ttsModel);
+        System.out.println("Available Voices: " + availableVoices);
 
         gameState = initializeGame();
         emitStatsUpdate();
@@ -117,6 +181,13 @@ public class WerewolfWebGame {
         }
 
         announceWinner();
+        
+        // Final delay to ensure last events are flushed to client before stream closes
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private GameState initializeGame() {
@@ -130,9 +201,69 @@ public class WerewolfWebGame {
 
         List<Player> players = new ArrayList<>();
         List<String> playerNames = langConfig.getPlayerNames();
+        
+        // Define genders
+        Map<String, String> nameToGender = new HashMap<>();
+        // Chinese names
+        nameToGender.put("潘安", "male");
+        nameToGender.put("宋玉", "male");
+        nameToGender.put("卫玠", "male");
+        nameToGender.put("兰陵王", "male");
+        nameToGender.put("唐伯虎", "male");
+        nameToGender.put("貂蝉", "female");
+        nameToGender.put("西施", "female");
+        nameToGender.put("王昭君", "female");
+        nameToGender.put("杨贵妃", "female");
+        // English names
+        nameToGender.put("Pan An", "male");
+        nameToGender.put("Song Yu", "male");
+        nameToGender.put("Wei Jie", "male");
+        nameToGender.put("Prince of Lanling", "male");
+        nameToGender.put("Tang Bohu", "male");
+        nameToGender.put("Diaochan", "female");
+        nameToGender.put("Xi Shi", "female");
+        nameToGender.put("Wang Zhaojun", "female");
+        nameToGender.put("Yang Guifei", "female");
+
+        // Split available voices by gender if possible
+        List<String> maleVoices = new ArrayList<>();
+        List<String> femaleVoices = new ArrayList<>();
+        
+        for (String v : availableVoices) {
+            String lowerV = v.toLowerCase();
+            if (lowerV.contains("echo") || lowerV.contains("onyx") || lowerV.contains("alex") || 
+                lowerV.contains("benjamin") || lowerV.contains("charles") || lowerV.contains("david")) {
+                maleVoices.add(v);
+            } else if (lowerV.contains("nova") || lowerV.contains("shimmer") || lowerV.contains("anna") || 
+                       lowerV.contains("bella") || lowerV.contains("claire") || lowerV.contains("diana")) {
+                femaleVoices.add(v);
+            }
+        }
+        
+        // Fallback if no specific voices found
+        if (maleVoices.isEmpty()) maleVoices.addAll(availableVoices);
+        if (femaleVoices.isEmpty()) femaleVoices.addAll(availableVoices);
+
+        int maleCount = 0;
+        int femaleCount = 0;
+
         for (int i = 0; i < roles.size(); i++) {
             String name = playerNames.get(i);
             Role role = roles.get(i);
+
+            // Assign voice based on gender
+            String gender = nameToGender.getOrDefault(name, "male");
+            String voice;
+            if ("female".equals(gender)) {
+                voice = femaleVoices.get(femaleCount % femaleVoices.size());
+                femaleCount++;
+            } else {
+                voice = maleVoices.get(maleCount % maleVoices.size());
+                maleCount++;
+            }
+            
+            playerVoices.put(name, voice);
+            System.out.println("Assigned voice for " + name + " (" + gender + "): " + voice);
 
             ReActAgent agent =
                     ReActAgent.builder()
@@ -218,11 +349,41 @@ public class WerewolfWebGame {
 
             werewolfHub.enter().block();
 
-            for (int i = 0; i < 2; i++) {
-                for (Player werewolf : werewolves) {
+            for (int round = 0; round < 2; round++) {
+                for (int i = 0; i < werewolves.size(); i++) {
+                    Player werewolf = werewolves.get(i);
                     Msg response = werewolf.getAgent().call().block();
                     String content = utils.extractTextContent(response);
-                    emitter.emitPlayerSpeak(werewolf.getName(), content, "werewolf_discussion");
+                    
+                    String audio = null;
+                    try {
+                        audio = ttsService.generateAudio(content, playerVoices.get(werewolf.getName())).get();
+                    } catch (Exception e) {
+                        String errMsg = "TTS Generation failed for werewolf " + werewolf.getName() + ": " + e.getMessage();
+                        System.err.println(errMsg);
+                        emitter.emitSystemMessage("⚠️ " + errMsg);
+                        
+                        // Backoff if RPM limit exceeded
+                        if (e.getMessage().contains("403") || e.getMessage().contains("RPM")) {
+                            try {
+                                System.err.println("RPM limit hit. Backing off for 10 seconds...");
+                                Thread.sleep(10000);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                    }
+                    
+                    emitter.emitPlayerSpeak(werewolf.getName(), content, "werewolf_discussion", audio);
+
+                    // Sync with frontend playback speed: 1.5s base + 50ms per char + 1s buffer
+                    int sleepTime = 1500 + (content.length() * 50) + 1000;
+                    try {
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
 
@@ -235,14 +396,67 @@ public class WerewolfWebGame {
                                     werewolves.stream().map(p -> (AgentBase) p.getAgent()).toList())
                             .concurrent()
                             .build();
-            List<Msg> votes = votingPipeline.execute(votingPrompt, VoteModel.class).block();
 
-            for (Msg vote : votes) {
+            List<Msg> votes;
+            try {
+                votes = votingPipeline.execute(votingPrompt, VoteModel.class).block();
+            } catch (Exception e) {
+                // Handle agent execution failures gracefully
+                emitter.emitSystemMessage(messages.getErrorInDecision("werewolf voting: " + e.getMessage()));
+
+                // In case of complete failure, broadcast result and return null to indicate no kill occurred
+                emitter.emitSystemMessage(messages.getSystemWerewolfKillResult(null));
+                List<Msg> broadcastMsgs = new ArrayList<>();
+                broadcastMsgs.add(
+                    Msg.builder()
+                        .name("system")
+                        .role(MsgRole.USER)
+                        .content(
+                            TextBlock.builder()
+                                .text(messages.getSystemWerewolfKillResult(null))
+                                .build())
+                        .build());
+
+                try (MsgHub werewolfHub2 =
+                        MsgHub.builder()
+                                .name("WerewolfVotingResult")
+                                .participants(
+                                        werewolves.stream()
+                                                .map(Player::getAgent)
+                                                .toArray(ReActAgent[]::new))
+                                .build()) {
+                    werewolfHub2.broadcast(broadcastMsgs).block();
+                }
+
+                return null; // Skip normal vote processing
+            }
+
+            for (int i = 0; i < votes.size(); i++) {
+                Msg vote = votes.get(i);
                 try {
                     VoteModel voteData = vote.getStructuredData(VoteModel.class);
-                    emitter.emitPlayerVote(vote.getName(), voteData.targetPlayer, voteData.reason);
+                    if (voteData != null && voteData.targetPlayer != null && isValidTargetForVoting(voteData.targetPlayer, gameState)) {
+                        emitter.emitPlayerVote(vote.getName(), voteData.targetPlayer, voteData.reason);
+                    } else if (voteData == null) {
+                        // Handle case where vote data couldn't be parsed
+                        emitter.emitSystemMessage(messages.getVoteParsingError(vote.getName()));
+                    } else if (!isValidTargetForVoting(voteData.targetPlayer, gameState)) {
+                        // Handle case where target is invalid (e.g. dead player or self-vote)
+                        emitter.emitSystemMessage(messages.getVoteParsingError(vote.getName()));
+                    }
                 } catch (Exception e) {
+                    // Handle parsing errors gracefully
                     emitter.emitSystemMessage(messages.getVoteParsingError(vote.getName()));
+                }
+
+                // Add delay between showing votes, except for the last vote
+                if (i < votes.size() - 1) {
+                    try {
+                        Thread.sleep(2000); // Increased delay for readability
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
 
@@ -306,6 +520,13 @@ public class WerewolfWebGame {
                             null,
                             messages.getActionWitchHealSkip());
                 }
+
+                // Add delay after heal action before poison action
+                try {
+                    Thread.sleep(1000); // Reduced delay
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
             } catch (Exception e) {
                 emitter.emitError(messages.getErrorWitchHeal(e.getMessage()));
             }
@@ -352,6 +573,13 @@ public class WerewolfWebGame {
             } catch (Exception e) {
                 emitter.emitError(messages.getErrorWitchPoison(e.getMessage()));
             }
+
+            // Add delay after poison action
+            try {
+                Thread.sleep(1000); // Reduced delay
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
         }
 
         emitStatsUpdate();
@@ -388,6 +616,13 @@ public class WerewolfWebGame {
             }
         } catch (Exception e) {
             emitter.emitError(messages.getErrorSeerCheck(e.getMessage()));
+        }
+
+        // Add delay after seer action
+        try {
+            Thread.sleep(1000); // Reduced delay
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -469,10 +704,40 @@ public class WerewolfWebGame {
                     }
                 }
 
-                for (Player player : alivePlayers) {
+                for (int i = 0; i < alivePlayers.size(); i++) {
+                    Player player = alivePlayers.get(i);
                     Msg response = player.getAgent().call().block();
                     String content = utils.extractTextContent(response);
-                    emitter.emitPlayerSpeak(player.getName(), content, "day_discussion");
+                    
+                    String audio = null;
+                    try {
+                        audio = ttsService.generateAudio(content, playerVoices.get(player.getName())).get();
+                    } catch (Exception e) {
+                        String errMsg = "TTS Generation failed for player " + player.getName() + ": " + e.getMessage();
+                        System.err.println(errMsg);
+                        emitter.emitSystemMessage("⚠️ " + errMsg);
+
+                        // Backoff if RPM limit exceeded
+                        if (e.getMessage().contains("403") || e.getMessage().contains("RPM")) {
+                            try {
+                                System.err.println("RPM limit hit. Backing off for 10 seconds...");
+                                Thread.sleep(10000);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                    }
+
+                    emitter.emitPlayerSpeak(player.getName(), content, "day_discussion", audio);
+
+                    // Sync with frontend playback speed: 1.5s base + 50ms per char + 1s buffer
+                    int sleepTime = 1500 + (content.length() * 50) + 1000;
+                    try {
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
         }
@@ -509,14 +774,68 @@ public class WerewolfWebGame {
                                             .toList())
                             .concurrent()
                             .build();
-            List<Msg> votes = votingPipeline.execute(votingPrompt, VoteModel.class).block();
 
-            for (Msg vote : votes) {
+            List<Msg> votes;
+            try {
+                votes = votingPipeline.execute(votingPrompt, VoteModel.class).block();
+            } catch (Exception e) {
+                // Handle agent execution failures gracefully
+                emitter.emitSystemMessage(messages.getErrorInDecision("day voting: " + e.getMessage()));
+
+                // In case of complete failure, don't create placeholder votes that will cause parsing errors
+                // Instead, return null to indicate no voting occurred
+                emitter.emitSystemMessage(messages.getSystemVotingResult(null));
+                List<Msg> broadcastMsgs = new ArrayList<>();
+                broadcastMsgs.add(
+                    Msg.builder()
+                        .name("system")
+                        .role(MsgRole.USER)
+                        .content(
+                            TextBlock.builder()
+                                .text(messages.getSystemVotingResult(null))
+                                .build())
+                        .build());
+
+                try (MsgHub votingHub2 =
+                        MsgHub.builder()
+                                .name("DayVotingResult")
+                                .participants(
+                                        alivePlayers.stream()
+                                                .map(Player::getAgent)
+                                                .toArray(ReActAgent[]::new))
+                                .build()) {
+                    votingHub2.broadcast(broadcastMsgs).block();
+                }
+
+                return null; // Skip normal vote processing
+            }
+
+            for (int i = 0; i < votes.size(); i++) {
+                Msg vote = votes.get(i);
                 try {
                     VoteModel voteData = vote.getStructuredData(VoteModel.class);
-                    emitter.emitPlayerVote(vote.getName(), voteData.targetPlayer, voteData.reason);
+                    if (voteData != null && voteData.targetPlayer != null && isValidTargetForVoting(voteData.targetPlayer, gameState)) {
+                        emitter.emitPlayerVote(vote.getName(), voteData.targetPlayer, voteData.reason);
+                    } else if (voteData == null) {
+                        // Handle case where vote data couldn't be parsed
+                        emitter.emitSystemMessage(messages.getVoteParsingError(vote.getName()));
+                    } else if (!isValidTargetForVoting(voteData.targetPlayer, gameState)) {
+                        // Handle case where target is invalid (e.g. dead player or self-vote)
+                        emitter.emitSystemMessage(messages.getVoteParsingError(vote.getName()));
+                    }
                 } catch (Exception e) {
+                    // Handle parsing errors gracefully
                     emitter.emitSystemMessage(messages.getVoteParsingError(vote.getName()));
+                }
+
+                // Add delay between showing votes, except for the last vote
+                if (i < votes.size() - 1) {
+                    try {
+                        Thread.sleep(2000); // Increased delay for readability
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
 
@@ -580,6 +899,13 @@ public class WerewolfWebGame {
             emitter.emitError(messages.getErrorHunterShoot(e.getMessage()));
         }
 
+        // Add delay after hunter action
+        try {
+            Thread.sleep(1000); // Reduced delay
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+
         emitStatsUpdate();
     }
 
@@ -595,6 +921,27 @@ public class WerewolfWebGame {
         } else {
             emitter.emitGameEnd("none", messages.getMaxRoundsReached());
         }
+    }
+
+    /**
+     * Validates if the target player is valid for voting (alive and not the voter themselves).
+     */
+    private boolean isValidTargetForVoting(String targetPlayer, GameState gameState) {
+        if (targetPlayer == null || targetPlayer.trim().isEmpty()) {
+            return false;
+        }
+
+        Player target = gameState.findPlayerByName(targetPlayer);
+        if (target == null) {
+            return false;
+        }
+
+        // Target must be alive
+        if (!target.isAlive()) {
+            return false;
+        }
+
+        return true;
     }
 
     private void emitStatsUpdate() {

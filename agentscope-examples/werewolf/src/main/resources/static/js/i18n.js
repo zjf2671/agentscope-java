@@ -58,7 +58,7 @@ const i18n = {
             poisoned: '被女巫毒杀',
             shot: '被猎人射杀'
         },
-        placeholderNames: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬'],
+        placeholderNames: ['潘安', '宋玉', '卫玠', '兰陵王', '唐伯虎', '貂蝉', '西施', '王昭君', '杨贵妃'],
         resurrected: '被女巫救活！'
     },
     'en-US': {
@@ -104,7 +104,7 @@ const i18n = {
             poisoned: 'poisoned by witch',
             shot: 'shot by hunter'
         },
-        placeholderNames: ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry', 'Ivy'],
+        placeholderNames: ['Pan An', 'Song Yu', 'Wei Jie', 'Prince of Lanling', 'Tang Bohu', 'Diaochan', 'Xi Shi', 'Wang Zhaojun', 'Yang Guifei'],
         resurrected: 'was saved by the witch!'
     }
 };

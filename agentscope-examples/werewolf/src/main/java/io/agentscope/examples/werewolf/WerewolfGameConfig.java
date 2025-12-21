@@ -36,7 +36,7 @@ public class WerewolfGameConfig {
     public static final int MAX_DISCUSSION_ROUNDS = 3;
 
     // Model configuration
-    public static final String DEFAULT_MODEL = "qwen3-max";
+    public static final String DEFAULT_MODEL = "qwen3-max"; //kimi-k2-0905   qwen3-coder-plus qwen3-max glm-4.6 deepseek-v3.2
 
     private WerewolfGameConfig() {
         // Utility class

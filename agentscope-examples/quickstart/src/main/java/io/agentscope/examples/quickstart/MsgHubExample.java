@@ -17,11 +17,14 @@ package io.agentscope.examples.quickstart;
 
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.formatter.dashscope.DashScopeMultiAgentFormatter;
+import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
+import io.agentscope.core.formatter.openai.OpenAIMultiAgentFormatter;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.model.DashScopeChatModel;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.pipeline.MsgHub;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.examples.quickstart.util.MsgUtils;
@@ -33,33 +36,31 @@ public class MsgHubExample {
 
     public static void main(String[] args) throws Exception {
         ExampleUtils.printWelcome(
-                "MsgHub Example - Multi-Agent Conversation",
-                "This example demonstrates how to use MsgHub for multi-agent conversations.\n"
-                    + "Three students (Alice, Bob, and Charlie) will discuss a topic together.\n"
-                    + "MsgHub automatically broadcasts each student's message to the others.");
+                "MsgHub 示例 - 多智能体对话",
+                "此示例演示如何使用 MsgHub 进行多智能体对话。\n"
+                    + "三个学生（Alice、Bob 和 Charlie）将一起讨论一个话题。\n"
+                    + "MsgHub 会自动将每个学生的消息广播给其他人。");
 
         // Get API key
-        String apiKey = ExampleUtils.getDashScopeApiKey();
+        String apiKey = ExampleUtils.getIFlowApiKey();
 
         // Create shared model with MultiAgentFormatter
-        DashScopeChatModel model =
-                DashScopeChatModel.builder()
-                        .apiKey(apiKey)
-                        .modelName("qwen-plus")
-                        .formatter(new DashScopeMultiAgentFormatter())
-                        .build();
+        OpenAIChatModel model = OpenAIChatModel.builder()
+                .baseUrl("https://apis.iflow.cn/v1")
+                .apiKey(apiKey).
+                modelName("qwen3-coder-plus")
+                .formatter(new OpenAIMultiAgentFormatter())
+                .build();
 
-        System.out.println("\n=== Creating Three Student Agents ===\n");
+        System.out.println("\n=== 创建三个学生智能体 ===\n");
 
         // Create three agents with different roles
         ReActAgent alice =
                 ReActAgent.builder()
                         .name("Alice")
                         .sysPrompt(
-                                "You are Alice, an optimistic student who always sees the bright"
-                                        + " side. "
-                                        + "Be brief (1-2 sentences) and enthusiastic in your"
-                                        + " responses.")
+                                "你是 Alice，一个总是看到积极面的乐观学生。"
+                                        + "回答简洁（1-2句），充满热情。")
                         .model(model)
                         .memory(new InMemoryMemory())
                         .toolkit(new Toolkit())
@@ -69,9 +70,8 @@ public class MsgHubExample {
                 ReActAgent.builder()
                         .name("Bob")
                         .sysPrompt(
-                                "You are Bob, a pragmatic student who focuses on practical"
-                                    + " concerns. Be brief (1-2 sentences) and realistic in your"
-                                    + " responses.")
+                                "你是 Bob，一个注重实际问题的务实学生。"
+                                    + "回答简洁（1-2句），注重实际。")
                         .model(model)
                         .memory(new InMemoryMemory())
                         .toolkit(new Toolkit())
@@ -81,16 +81,15 @@ public class MsgHubExample {
                 ReActAgent.builder()
                         .name("Charlie")
                         .sysPrompt(
-                                "You are Charlie, a creative student who thinks outside the box. "
-                                        + "Be brief (1-2 sentences) and imaginative in your"
-                                        + " responses.")
+                                "你是 Charlie，一个富有创造力、思维独特的学生。"
+                                        + "回答简洁（1-2句），富有想象力。")
                         .model(model)
                         .memory(new InMemoryMemory())
                         .toolkit(new Toolkit())
                         .build();
 
         System.out.println(
-                "Created agents: Alice (Optimistic), Bob (Pragmatic), Charlie" + " (Creative)\n");
+                "已创建智能体: Alice (乐观型), Bob (务实型), Charlie" + " (创意型)\n");
 
         // Example 1: Basic multi-agent conversation (block style)
         basicConversationExample(alice, bob, charlie);
@@ -98,19 +97,19 @@ public class MsgHubExample {
         // Example 2: Reactive style with Mono.then() pattern
         reactiveConversationExample(alice, bob, charlie);
 
-        System.out.println("\n=== MsgHub Example Complete ===");
+        System.out.println("\n=== MsgHub 示例完成 ===");
         System.out.println(
-                "\nKey Takeaways:"
-                        + "\n1. MsgHub automates message broadcasting between agents"
-                        + "\n2. Use block() for synchronous-style code"
-                        + "\n3. Use then() for fully reactive code"
-                        + "\n4. Each agent maintains its own memory of the conversation");
+                "\n关键要点:"
+                        + "\n1. MsgHub 自动完成智能体之间的消息广播"
+                        + "\n2. 使用 block() 进行同步风格的代码编写"
+                        + "\n3. 使用 then() 进行完全响应式的代码编写"
+                        + "\n4. 每个智能体都维护自己的对话记忆");
     }
 
-    /** Example 1: Basic multi-agent conversation with automatic broadcasting. */
+    /** 示例 1: 带自动广播的基本多智能体对话。 */
     private static void basicConversationExample(
             ReActAgent alice, ReActAgent bob, ReActAgent charlie) {
-        System.out.println("\n=== Example 1: Basic Multi-Agent Conversation ===\n");
+        System.out.println("\n=== 示例 1: 基本多智能体对话 ===\n");
 
         // Create announcement message
         Msg announcement =
@@ -120,9 +119,8 @@ public class MsgHubExample {
                         .content(
                                 TextBlock.builder()
                                         .text(
-                                                "Let's discuss: What's the best way to learn a new"
-                                                        + " programming language? Each person share"
-                                                        + " ONE brief idea.")
+                                                "让我们讨论一下：学习新编程语言的最佳方法是什么？"
+                                                        + "每个人分享一个简短的想法。")
                                         .build())
                         .build();
 
@@ -155,28 +153,28 @@ public class MsgHubExample {
             printAgentResponse("Charlie", charlieResponse);
 
             // Verify message propagation
-            System.out.println("\n--- Memory Verification ---");
+            System.out.println("\n--- 记忆验证 ---");
             System.out.println(
-                    "Alice's memory size: " + alice.getMemory().getMessages().size() + " messages");
+                    "Alice 的记忆大小: " + alice.getMemory().getMessages().size() + " 条消息");
             System.out.println(
-                    "Bob's memory size: " + bob.getMemory().getMessages().size() + " messages");
+                    "Bob 的记忆大小: " + bob.getMemory().getMessages().size() + " 条消息");
             System.out.println(
-                    "Charlie's memory size: "
+                    "Charlie 的记忆大小: "
                             + charlie.getMemory().getMessages().size()
-                            + " messages");
+                            + " 条消息");
             System.out.println(
-                    "(Each agent has the announcement + all three responses in their memory)");
+                    "(每个智能体都有公告 + 所有三个回应在他们的记忆中)");
         }
         // Hub is automatically closed, subscribers are cleaned up
     }
 
     /**
-     * Example 2: Reactive conversation with Mono.then() pattern. This demonstrates how to use
-     * fully reactive programming style without blocking.
+     * 示例 2: 使用 Mono.then() 模式的响应式对话。这演示了如何使用
+     * 完全响应式编程风格而不阻塞。
      */
     private static void reactiveConversationExample(
             ReActAgent alice, ReActAgent bob, ReActAgent charlie) {
-        System.out.println("\n\n=== Example 2: Reactive Style with Mono.then() ===\n");
+        System.out.println("\n\n=== 示例 2: 使用 Mono.then() 的响应式风格 ===\n");
 
         // Clear memories from previous example
         alice.getMemory().clear();
@@ -190,8 +188,7 @@ public class MsgHubExample {
                         .content(
                                 TextBlock.builder()
                                         .text(
-                                                "Quick question: What's your favorite programming"
-                                                        + " paradigm?")
+                                                "快速问题：你最喜欢的编程范式是什么？")
                                         .build())
                         .build();
 
@@ -218,11 +215,11 @@ public class MsgHubExample {
                 .doOnSuccess(
                         msg -> System.out.println("[Charlie]: " + MsgUtils.getTextContent(msg)))
                 .then(hub.exit())
-                .doOnSuccess(v -> System.out.println("\n--- Reactive chain completed ---"))
+                .doOnSuccess(v -> System.out.println("\n--- 响应式链完成 ---"))
                 .block(); // Only block once at the end
     }
 
-    /** Helper method to print agent response. */
+    /** 辅助方法，用于打印智能体响应。 */
     private static void printAgentResponse(String name, Msg msg) {
         String content = MsgUtils.getTextContent(msg);
         if (content != null && !content.isEmpty()) {

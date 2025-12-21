@@ -66,9 +66,10 @@ public class GameEventEmitter {
      * @param playerName player name
      * @param content speech content
      * @param context context (e.g., "werewolf_discussion", "day_discussion")
+     * @param audio base64 encoded audio
      */
-    public void emitPlayerSpeak(String playerName, String content, String context) {
-        emit(GameEvent.playerSpeak(playerName, content, context));
+    public void emitPlayerSpeak(String playerName, String content, String context, String audio) {
+        emit(GameEvent.playerSpeak(playerName, content, context, audio));
     }
 
     /**

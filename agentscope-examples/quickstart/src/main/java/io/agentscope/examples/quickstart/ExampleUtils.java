@@ -56,6 +56,10 @@ public class ExampleUtils {
         return getApiKey(
                 "DASHSCOPE_API_KEY", "DashScope", "https://dashscope.console.aliyun.com/apiKey");
     }
+    public static String getIFlowApiKey() throws IOException {
+        return getApiKey(
+                "IFLOW_API_KEY", "IFlow", "https://platform.iflow.cn/profile?tab=apiKey");
+    }
 
     /**
      * Get OpenAI API key from environment variable or interactive input.

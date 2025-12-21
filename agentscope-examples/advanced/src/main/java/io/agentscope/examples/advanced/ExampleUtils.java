@@ -48,6 +48,15 @@ public class ExampleUtils {
         }
         return apiKey;
     }
+    public static String getIFlowApiKey() {
+        String apiKey = System.getenv("IFLOW_API_KEY");
+        if (apiKey == null || apiKey.isEmpty()) {
+            System.err.println("Error: IFLOW_API_KEY environment variable not set.");
+            System.err.println("Please set it with: export IFLOW_API_KEY=your_api_key");
+            System.exit(1);
+        }
+        return apiKey;
+    }
 
     /**
      * Gets the Mem0 API key from environment variable. Exits if not set.

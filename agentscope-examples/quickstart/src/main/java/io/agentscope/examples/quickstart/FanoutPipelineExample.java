@@ -17,11 +17,13 @@ package io.agentscope.examples.quickstart;
 
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.formatter.dashscope.DashScopeChatFormatter;
+import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.model.DashScopeChatModel;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.pipeline.FanoutPipeline;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.examples.quickstart.util.MsgUtils;
@@ -52,7 +54,7 @@ public class FanoutPipelineExample {
                         + "You'll see both concurrent and sequential execution for comparison!");
 
         // Get API key
-        String apiKey = ExampleUtils.getDashScopeApiKey();
+        String apiKey = ExampleUtils.getIFlowApiKey();
 
         System.out.println("Setting up expert review panel...\n");
 
@@ -145,10 +147,13 @@ public class FanoutPipelineExample {
                             + "Keep your review concise (3-5 sentences). Start your response with"
                             + " 'TECHNICAL REVIEW:'")
                 .model(
-                        DashScopeChatModel.builder().apiKey(apiKey).modelName("qwen-plus").stream(
+                        OpenAIChatModel.builder()
+                                .baseUrl("https://apis.iflow.cn/v1")
+                                .apiKey(apiKey).
+                                modelName("qwen3-coder-plus").stream(
                                         true)
-                                .enableThinking(false)
-                                .formatter(new DashScopeChatFormatter())
+//                                .enableThinking(false)
+                                .formatter(new OpenAIChatFormatter())
                                 .build())
                 .memory(new InMemoryMemory())
                 .toolkit(new Toolkit())
@@ -175,10 +180,12 @@ public class FanoutPipelineExample {
                                 + "Keep your review concise (3-5 sentences). "
                                 + "Start your response with 'UX REVIEW:'")
                 .model(
-                        DashScopeChatModel.builder().apiKey(apiKey).modelName("qwen-plus").stream(
+                        OpenAIChatModel.builder().baseUrl("https://apis.iflow.cn/v1")
+                                .apiKey(apiKey).
+                                modelName("qwen3-coder-plus").stream(
                                         true)
-                                .enableThinking(false)
-                                .formatter(new DashScopeChatFormatter())
+//                                .enableThinking(false)
+                                .formatter(new OpenAIChatFormatter())
                                 .build())
                 .memory(new InMemoryMemory())
                 .toolkit(new Toolkit())
@@ -205,10 +212,12 @@ public class FanoutPipelineExample {
                                 + "Keep your review concise (3-5 sentences). "
                                 + "Start your response with 'BUSINESS REVIEW:'")
                 .model(
-                        DashScopeChatModel.builder().apiKey(apiKey).modelName("qwen-plus").stream(
+                        OpenAIChatModel.builder().baseUrl("https://apis.iflow.cn/v1")
+                                .apiKey(apiKey).
+                                modelName("qwen3-coder-plus").stream(
                                         true)
-                                .enableThinking(false)
-                                .formatter(new DashScopeChatFormatter())
+//                                .enableThinking(false)
+                                .formatter(new OpenAIChatFormatter())
                                 .build())
                 .memory(new InMemoryMemory())
                 .toolkit(new Toolkit())

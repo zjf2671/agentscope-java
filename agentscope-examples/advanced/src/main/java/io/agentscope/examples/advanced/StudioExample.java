@@ -17,8 +17,10 @@ package io.agentscope.examples.advanced;
 
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.formatter.dashscope.DashScopeChatFormatter;
+import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.DashScopeChatModel;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.studio.StudioManager;
 import io.agentscope.core.studio.StudioUserAgent;
 
@@ -29,7 +31,7 @@ public class StudioExample {
 
     public static void main(String[] args) throws Exception {
         // Get API key
-        String apiKey = ExampleUtils.getDashScopeApiKey();
+        String apiKey = ExampleUtils.getIFlowApiKey();
 
         System.out.println("Starting Studio Example...\n");
 
@@ -50,10 +52,12 @@ public class StudioExample {
                         .name("Assistant")
                         .sysPrompt("You are a helpful AI assistant.")
                         .model(
-                                DashScopeChatModel.builder()
+                                OpenAIChatModel.builder()
+                                        .baseUrl("https://apis.iflow.cn/v1")
                                         .apiKey(apiKey)
-                                        .modelName("qwen-plus")
-                                        .formatter(new DashScopeChatFormatter())
+                                        .modelName("deepseek-v3.2")
+                                        .stream(false)
+                                        .formatter(new OpenAIChatFormatter())
                                         .build())
                         .build();
         System.out.println("Agent created\n");

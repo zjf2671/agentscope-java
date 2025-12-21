@@ -16,6 +16,8 @@
 package io.agentscope.examples.werewolf;
 
 import java.io.IOException;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -27,9 +29,9 @@ public class WerewolfWebApplication {
 
     public static void main(String[] args) throws IOException {
         // Check API key
-        String apiKey = System.getenv("DASHSCOPE_API_KEY");
+        String apiKey = System.getenv("IFLOW_API_KEY");
         if (apiKey == null || apiKey.isEmpty()) {
-            System.err.println("Error: DASHSCOPE_API_KEY environment variable not set.");
+            System.err.println("Error: IFLOW_API_KEY environment variable not set.");
             System.err.println("Please set it before starting the game.");
             System.exit(1);
         }
@@ -41,7 +43,7 @@ public class WerewolfWebApplication {
         SpringApplication.run(WerewolfWebApplication.class, args);
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.println("  Server started! Open http://localhost:8080 in your browser");
+        System.out.println("  Server started! Open http://localhost:8880 in your browser");
         System.out.println("=".repeat(60) + "\n");
     }
 }

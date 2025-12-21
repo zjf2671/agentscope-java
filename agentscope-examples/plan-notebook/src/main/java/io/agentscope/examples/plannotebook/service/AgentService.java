@@ -73,10 +73,10 @@ public class AgentService implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        apiKey = System.getenv("DASHSCOPE_API_KEY");
+        apiKey = System.getenv("IFLOW_API_KEY");
         if (apiKey == null || apiKey.isEmpty()) {
-            log.error("DASHSCOPE_API_KEY environment variable not set");
-            throw new IllegalStateException("DASHSCOPE_API_KEY environment variable is required");
+            log.error("IFLOW_API_KEY environment variable not set");
+            throw new IllegalStateException("IFLOW_API_KEY environment variable is required");
         }
 
         initializeAgent();

@@ -18,6 +18,14 @@
 let gameRunning = false;
 let players = [];
 let abortController = null;
+let streamFinished = false;
+
+// ==================== Text-to-Speech State ====================
+let ttsEnabled = true;
+let eventQueue = [];
+let isProcessingEvent = false;
+let currentAudio = null;
+let voiceMap = {}; // 存储玩家名到语音参数的映射
 
 // Role icons mapping
 const roleIcons = {
@@ -60,6 +68,7 @@ async function startGame() {
     startBtn.querySelector('[data-i18n]').textContent = t('gameInProgress');
 
     abortController = new AbortController();
+    streamFinished = false;
 
     try {
         const response = await fetch(`/api/game/start?lang=${currentLanguage}`, {
@@ -106,61 +115,50 @@ async function startGame() {
             }
         }
 
-        gameEnded();
+        streamFinished = true;
+        // Don't call gameEnded() here, let processEventQueue finish the queue
     } catch (error) {
         if (error.name !== 'AbortError') {
             addLog(t('connectError') + error.message, 'error');
         }
+        streamFinished = true;
         gameEnded();
     }
 }
 
 function gameEnded() {
     gameRunning = false;
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
     startBtn.disabled = false;
     startBtn.querySelector('[data-i18n]').textContent = t('playAgain');
     abortController = null;
+    streamFinished = false;
 }
 
 function handleEvent(event) {
     const type = event.type;
     const data = event.data;
 
-    switch (type) {
-        case 'GAME_INIT':
-            handleGameInit(data.players);
-            break;
-        case 'PHASE_CHANGE':
-            handlePhaseChange(data.round, data.phase);
-            break;
-        case 'PLAYER_SPEAK':
-            handlePlayerSpeak(data.player, data.content, data.context);
-            break;
-        case 'PLAYER_VOTE':
-            handlePlayerVote(data.voter, data.target, data.reason);
-            break;
-        case 'PLAYER_ACTION':
-            handlePlayerAction(data.player, data.role, data.action, data.target, data.result);
-            break;
-        case 'PLAYER_ELIMINATED':
-            handlePlayerEliminated(data.player, data.role, data.cause);
-            break;
-        case 'PLAYER_RESURRECTED':
-            handlePlayerResurrected(data.player);
-            break;
-        case 'STATS_UPDATE':
-            handleStatsUpdate(data.alive, data.werewolves, data.villagers);
-            break;
-        case 'SYSTEM_MESSAGE':
-            addLog(data.message, 'system');
-            break;
-        case 'GAME_END':
-            handleGameEnd(data.winner, data.reason);
-            break;
-        case 'ERROR':
-            addLog(t('error') + data.message, 'error');
-            break;
+    // Immediate updates (Status, Stats) or specific high-priority events
+    if (type === 'GAME_INIT') {
+        handleGameInit(data.players);
+        return;
     }
+    if (type === 'STATS_UPDATE') {
+        handleStatsUpdate(data.alive, data.werewolves, data.villagers);
+        return;
+    }
+    if (type === 'ERROR') {
+        addLog(t('error') + data.message, 'error');
+        return;
+    }
+
+    // Queue narrative events
+    eventQueue.push(event);
+    processEventQueue();
 }
 
 // ==================== Event Handlers ====================
@@ -181,13 +179,135 @@ function handlePhaseChange(round, phase) {
     }
 }
 
-function handlePlayerSpeak(playerName, content, context) {
-    highlightPlayer(playerName);
+function processEventQueue() {
+    if (isProcessingEvent) {
+        return;
+    }
 
+    if (eventQueue.length === 0) {
+        if (streamFinished && gameRunning) {
+            gameEnded();
+        }
+        return;
+    }
+
+    isProcessingEvent = true;
+    const event = eventQueue.shift();
+    const { type, data } = event;
+
+    let delay = 300;
+
+    switch (type) {
+        case 'PHASE_CHANGE':
+            handlePhaseChange(data.round, data.phase);
+            break;
+        case 'PLAYER_SPEAK':
+            processPlayerSpeak(data);
+            return; // processPlayerSpeak handles recursion
+        case 'PLAYER_VOTE':
+            handlePlayerVote(data.voter, data.target, data.reason);
+            delay = 500;
+            break;
+        case 'PLAYER_ACTION':
+            handlePlayerAction(data.player, data.role, data.action, data.target, data.result);
+            delay = 500;
+            break;
+        case 'PLAYER_ELIMINATED':
+            handlePlayerEliminated(data.player, data.role, data.cause);
+            delay = 500;
+            break;
+        case 'PLAYER_RESURRECTED':
+            handlePlayerResurrected(data.player);
+            delay = 500;
+            break;
+        case 'SYSTEM_MESSAGE':
+            addLog(data.message, 'system');
+            delay = 300;
+            break;
+        case 'GAME_END':
+            handleGameEnd(data.winner, data.reason);
+            // Don't continue queue processing if game ended (handled by stopAllAudio inside handleGameEnd)
+            return;
+    }
+
+    setTimeout(() => {
+        isProcessingEvent = false;
+        processEventQueue();
+    }, delay);
+}
+
+function processPlayerSpeak(data) {
+    const { player: playerName, content, context, audio } = data;
+
+    // UI Updates
+    highlightPlayer(playerName);
     const contextLabel = context === 'werewolf_discussion' ? `[${t('werewolfDiscussion')}]` : `[${t('speak')}]`;
     addLog(`<span class="speaker">[${playerName}]</span> ${contextLabel}: ${content}`, 'speak');
+    console.log(`[PlayerSpeak] Processing ${playerName}. Audio: ${!!audio}`);
 
-    setTimeout(() => unhighlightPlayer(playerName), 2000);
+    // Determine duration and play audio
+    let duration = 1500 + (content.length * 50); // Faster fallback: 1.5s + 50ms per char
+    
+    if (ttsEnabled && audio) {
+        try {
+            currentAudio = new Audio("data:audio/mp3;base64," + audio);
+            
+            currentAudio.onended = () => {
+                finishEvent(playerName);
+            };
+            
+            currentAudio.onerror = (e) => {
+                console.error("Audio playback error:", e);
+                // Fallback to timeout
+                setTimeout(() => finishEvent(playerName), duration);
+            };
+
+            const playPromise = currentAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    console.error("Audio playback failed (async):", e);
+                    // Fallback to timeout
+                    setTimeout(() => finishEvent(playerName), duration);
+                });
+            }
+        } catch (e) {
+            console.error("Error creating audio:", e);
+            setTimeout(() => finishEvent(playerName), duration);
+        }
+    } else {
+        // No audio, use timer
+        setTimeout(() => finishEvent(playerName), duration);
+    }
+}
+
+function finishEvent(playerName) {
+    if (playerName) {
+        unhighlightPlayer(playerName);
+    }
+    isProcessingEvent = false;
+    currentAudio = null;
+    // Small buffer before next
+    setTimeout(processEventQueue, 100);
+}
+
+function stopAllAudio() {
+    eventQueue = [];
+    isProcessingEvent = false;
+    streamFinished = false;
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
+    // Clear all highlights
+    document.querySelectorAll('.player-card.speaking').forEach(card => card.classList.remove('speaking'));
+}
+
+function toggleTTS() {
+    ttsEnabled = !ttsEnabled;
+    const btn = document.getElementById('tts-toggle');
+    if (btn) {
+        btn.querySelector('span').textContent = ttsEnabled ? '🔊 TTS: ON' : '🔇 TTS: OFF';
+    }
 }
 
 function handlePlayerVote(voter, target, reason) {
@@ -229,6 +349,7 @@ function handleStatsUpdate(alive, werewolves, villagers) {
 }
 
 function handleGameEnd(winner, reason) {
+    stopAllAudio();
     const winnerText = winner === 'villagers' ? t('villagersWin') : t('werewolvesWin');
     setStatus(winner === 'villagers' ? '🎉' : '🐺', t('gameEnd'), `${winnerText} ${reason}`, 'end');
     addLog(`${t('gameEnd')} - ${winnerText} ${reason}`, 'system');
@@ -273,6 +394,10 @@ function revealAllRoles() {
 }
 
 function highlightPlayer(playerName) {
+    // 先清除所有玩家的 speaking 状态，确保只有一个玩家处于 speaking 状态
+    const allSpeakingCards = document.querySelectorAll('.player-card.speaking');
+    allSpeakingCards.forEach(card => card.classList.remove('speaking'));
+
     const card = document.getElementById(`player-${playerName}`);
     if (card) {
         card.classList.add('speaking');

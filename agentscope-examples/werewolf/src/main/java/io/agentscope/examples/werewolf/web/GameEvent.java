@@ -55,10 +55,10 @@ public class GameEvent {
         return new GameEvent(GameEventType.PHASE_CHANGE, Map.of("round", round, "phase", phase));
     }
 
-    public static GameEvent playerSpeak(String playerName, String content, String context) {
+    public static GameEvent playerSpeak(String playerName, String content, String context, String audio) {
         return new GameEvent(
                 GameEventType.PLAYER_SPEAK,
-                Map.of("player", playerName, "content", content, "context", context));
+                Map.of("player", playerName, "content", content, "context", context, "audio", audio != null ? audio : ""));
     }
 
     public static GameEvent playerVote(String voterName, String targetName, String reason) {

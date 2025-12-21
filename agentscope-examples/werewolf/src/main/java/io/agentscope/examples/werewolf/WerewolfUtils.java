@@ -55,10 +55,15 @@ public class WerewolfUtils {
         for (Msg voteMsg : votes) {
             try {
                 VoteModel vote = voteMsg.getStructuredData(VoteModel.class);
-                if (vote.targetPlayer != null && !vote.targetPlayer.isEmpty()) {
-                    voteCount.put(
-                            vote.targetPlayer, voteCount.getOrDefault(vote.targetPlayer, 0) + 1);
-                    voteReasons.put(voteMsg.getName(), vote.reason);
+                if (vote != null && vote.targetPlayer != null && !vote.targetPlayer.isEmpty()) {
+                    // Check if the target player is valid and alive
+                    if (isValidAlivePlayer(vote.targetPlayer, state)) {
+                        voteCount.put(
+                                vote.targetPlayer, voteCount.getOrDefault(vote.targetPlayer, 0) + 1);
+                        voteReasons.put(voteMsg.getName(), vote.reason);
+                    } else {
+                        System.out.println("Invalid vote target from " + voteMsg.getName() + ": " + vote.targetPlayer);
+                    }
                 }
             } catch (Exception e) {
                 System.err.println(
@@ -69,7 +74,14 @@ public class WerewolfUtils {
         // Print voting results
         System.out.println(messages.getVotingResults());
         for (Map.Entry<String, Integer> entry : voteCount.entrySet()) {
-            System.out.println(messages.getVoteCount(entry.getKey(), entry.getValue()));
+            String playerName = entry.getKey();
+            Player player = state.findPlayerByName(playerName);
+            if (player != null) {
+                String roleSymbol = messages.getRoleSymbol(player.getRole());
+                System.out.println(messages.getVoteCount("[" + roleSymbol + " " + playerName + "]", entry.getValue()));
+            } else {
+                System.out.println(messages.getVoteCount(playerName, entry.getValue()));
+            }
         }
 
         // Find the player(s) with the most votes
@@ -90,8 +102,24 @@ public class WerewolfUtils {
         String votedOutName;
         if (mostVotedPlayers.size() > 1) {
             votedOutName = mostVotedPlayers.get(RANDOM.nextInt(mostVotedPlayers.size()));
+            // Add role symbols to tied players list
+            List<String> tiedPlayersWithSymbols = mostVotedPlayers.stream()
+                    .map(name -> {
+                        Player p = state.findPlayerByName(name);
+                        if (p != null) {
+                            return "[" + messages.getRoleSymbol(p.getRole()) + " " + name + "]";
+                        }
+                        return name;
+                    })
+                    .toList();
+
+            Player selectedPlayer = state.findPlayerByName(votedOutName);
+            String selectedWithSymbol = selectedPlayer != null ?
+                    "[" + messages.getRoleSymbol(selectedPlayer.getRole()) + " " + votedOutName + "]" :
+                    votedOutName;
+
             System.out.println(
-                    messages.getTieMessage(String.join(", ", mostVotedPlayers), votedOutName));
+                    messages.getTieMessage(String.join(", ", tiedPlayersWithSymbols), selectedWithSymbol));
         } else {
             votedOutName = mostVotedPlayers.get(0);
         }
@@ -100,13 +128,16 @@ public class WerewolfUtils {
     }
 
     /**
-     * Formats a list of players as a comma-separated string.
+     * Formats a list of players as a comma-separated string with role symbols.
      */
     public String formatPlayerList(List<Player> players) {
         if (players.isEmpty()) {
             return "none";
         }
-        return players.stream().map(Player::getName).reduce((a, b) -> a + ", " + b).orElse("");
+        return players.stream()
+                .map(p -> "[" + messages.getRoleSymbol(p.getRole()) + " " + p.getName() + "]")
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
     }
 
     /**
@@ -149,7 +180,8 @@ public class WerewolfUtils {
         for (Player player : state.getAllPlayers()) {
             String status = messages.getStatusLabel(player.isAlive());
             String roleName = messages.getRoleDisplayName(player.getRole());
-            System.out.println(String.format("  %s - %s (%s)", player.getName(), roleName, status));
+            String roleSymbol = messages.getRoleSymbol(player.getRole());
+            System.out.println(String.format("  [%s %s] - %s (%s)", roleSymbol, player.getName(), roleName, status));
         }
 
         System.out.println("\n" + "=".repeat(60));

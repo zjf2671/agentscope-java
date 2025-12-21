@@ -142,10 +142,17 @@ body {
     min-width: 160px;
 }
 
-.player-card:hover {
+.player-card:hover:not(.speaking) {
     transform: translateY(-3px);
     border-color: rgba(168, 85, 247, 0.5);
     box-shadow: 0 10px 30px rgba(168, 85, 247, 0.2);
+}
+
+.player-card.speaking:hover:not(.dead) {
+    /* Override hover effect to maintain speaking state */
+    transform: translateY(-3px);
+    border-color: #22c55e !important;
+    box-shadow: 0 10px 30px rgba(34, 197, 94, 0.4) !important;
 }
 
 .player-card.dead {
@@ -161,9 +168,35 @@ body {
     font-size: 1.5rem;
 }
 
-.player-card.speaking {
+.player-card.speaking:not(.dead) {
     border-color: #22c55e;
     box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+}
+
+/* Speaker icon appears during speaking - but not for dead players */
+.player-card.speaking:not(.dead)::before {
+    content: '🔊';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 1.2rem;
+    z-index: 10;
+    animation: pulse 1s infinite;
+}
+
+/* Keep the death icon but don't show if speaking */
+.player-card.dead:not(.speaking)::after {
+    content: '☠️';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.5rem;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 .player-icon {
