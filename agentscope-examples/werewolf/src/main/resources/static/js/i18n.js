@@ -15,23 +15,24 @@
  */
 
 const i18n = {
-    'zh-CN': {
-        title: '狼人杀 - 实时对战',
-        waitingStart: '等待开始',
-        startGame: '🎮 开始游戏',
-        gameInProgress: '游戏进行中...',
-        playAgain: '🎮 再来一局',
-        readyStart: '准备开始',
-        clickToStart: '点击下方按钮开始游戏',
-        statsAlive: '存活',
-        statsWerewolves: '狼人',
-        statsVillagers: '好人',
-        logTitle: '💬 游戏日志',
-        logWaiting: '等待游戏开始...',
+    'zh_CN': {
+        gameTitle: '狼人杀对决',
+        gameSubtitle: '由 AgentScope 驱动',
+        waitingToStart: '等待开始',
+        clickStartMessage: '点击开始游戏按钮开始一场惊心动魄的博弈。',
+        startGame: '开始游戏',
+        gameInProgress: '对局进行中...',
+        playAgain: '再来一局',
+        statAlive: '存活人数',
+        statWerewolves: '狼人阵营',
+        statVillagers: '好人阵营',
+        playersList: '参与玩家',
+        gameLog: '游戏日志',
+        welcomeMessage: '欢迎来到 狼人杀！准备好开始了吗？',
         round: '回合',
         phaseNight: '夜晚',
         phaseDay: '白天',
-        gameStart: '游戏开始！',
+        gameStart: '对局开始！',
         startFailed: '启动失败: ',
         connectError: '连接错误: ',
         gameEnd: '游戏结束',
@@ -61,23 +62,24 @@ const i18n = {
         placeholderNames: ['潘安', '宋玉', '卫玠', '兰陵王', '唐伯虎', '貂蝉', '西施', '王昭君', '杨贵妃'],
         resurrected: '被女巫救活！'
     },
-    'en-US': {
-        title: 'Werewolf - Real-time Battle',
-        waitingStart: 'Waiting to start',
-        startGame: '🎮 Start Game',
-        gameInProgress: 'Game in progress...',
-        playAgain: '🎮 Play Again',
-        readyStart: 'Ready to Start',
-        clickToStart: 'Click the button below to start the game',
-        statsAlive: 'Alive',
-        statsWerewolves: 'Werewolves',
-        statsVillagers: 'Villagers',
-        logTitle: '💬 Game Log',
-        logWaiting: 'Waiting for game to start...',
+    'en_US': {
+        gameTitle: 'Werewolf Battle',
+        gameSubtitle: 'Powered by AgentScope',
+        waitingToStart: 'Waiting to Start',
+        clickStartMessage: 'Click the "Start Game" button to begin a thrilling game of strategy.',
+        startGame: 'Start Game',
+        gameInProgress: 'In Progress...',
+        playAgain: 'Play Again',
+        statAlive: 'Alive',
+        statWerewolves: 'Werewolves',
+        statVillagers: 'Villagers',
+        playersList: 'Players',
+        gameLog: 'Game Log',
+        welcomeMessage: 'Welcome to Werewolf! Ready to start?',
         round: 'Round',
         phaseNight: 'Night',
         phaseDay: 'Day',
-        gameStart: 'Game started!',
+        gameStart: 'Game Started!',
         startFailed: 'Start failed: ',
         connectError: 'Connection error: ',
         gameEnd: 'Game Over',
@@ -109,11 +111,13 @@ const i18n = {
     }
 };
 
-let currentLanguage = localStorage.getItem('werewolf-lang') || 'zh-CN';
+let currentLanguage = localStorage.getItem('werewolf-lang') || 'zh_CN';
 
 function t(key) {
     const keys = key.split('.');
     let value = i18n[currentLanguage];
+    if (!value) return key;
+    
     for (const k of keys) {
         if (value && typeof value === 'object') {
             value = value[k];
@@ -129,14 +133,27 @@ function setLanguage(lang) {
     localStorage.setItem('werewolf-lang', lang);
     applyTranslations();
     updateLanguageButtons();
+    
+    // Refresh player display names if game hasn't started
+    if (typeof players !== 'undefined' && players.length > 0 && players[0].role === null) {
+        const placeholderNames = t('placeholderNames');
+        players.forEach((p, i) => {
+            if (i < placeholderNames.length) {
+                p.name = placeholderNames[i];
+            }
+        });
+        if (typeof renderPlayers === 'function') {
+            renderPlayers();
+        }
+    }
 }
 
 function updateLanguageButtons() {
-    const zhBtn = document.getElementById('lang-zh');
-    const enBtn = document.getElementById('lang-en');
+    const zhBtn = document.getElementById('lang-zh_CN');
+    const enBtn = document.getElementById('lang-en_US');
     if (zhBtn && enBtn) {
-        zhBtn.classList.toggle('active', currentLanguage === 'zh-CN');
-        enBtn.classList.toggle('active', currentLanguage === 'en-US');
+        zhBtn.classList.toggle('active', currentLanguage === 'zh_CN');
+        enBtn.classList.toggle('active', currentLanguage === 'en_US');
     }
 }
 
@@ -148,5 +165,5 @@ function applyTranslations() {
             el.textContent = value;
         }
     });
-    document.title = t('title');
+    document.title = t('gameTitle');
 }

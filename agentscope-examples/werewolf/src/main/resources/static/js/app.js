@@ -39,10 +39,10 @@ const roleIcons = {
 // ==================== DOM Elements ====================
 const playersGrid = document.getElementById('players-grid');
 const statusCard = document.getElementById('status-card');
-const statusIcon = document.getElementById('status-icon');
+const phaseIconBig = document.getElementById('phase-icon-big');
 const statusTitle = document.getElementById('status-title');
 const statusMessage = document.getElementById('status-message');
-const roundInfo = document.getElementById('round-info');
+const roundInfo = document.getElementById('round-info-display');
 const statAlive = document.getElementById('stat-alive');
 const statWerewolves = document.getElementById('stat-werewolves');
 const statVillagers = document.getElementById('stat-villagers');
@@ -170,11 +170,21 @@ function handleGameInit(playerList) {
 
 function handlePhaseChange(round, phase) {
     const phaseText = phase === 'night' ? t('phaseNight') : t('phaseDay');
-    roundInfo.textContent = `${t('round')} ${round} - ${phase === 'night' ? '🌙' : '☀️'} ${phaseText}`;
+    roundInfo.textContent = `${t('round')} ${round} - ${phaseText}`;
 
+    // Remove existing phase classes
+    document.body.classList.remove('night-theme', 'day-theme');
+    
     if (phase === 'night') {
+        document.body.classList.add('night-theme');
         setStatus('🌙', t('nightPhase'), t('nightMessage'), 'night');
+        
+        // Play wolf howl sound effect
+        const howl = new Audio('https://image.harryzhang.site/2025/12/wolf1-b256d988460a20bd3daff7918fabb556.mp3');
+        howl.volume = 0.5;
+        howl.play().catch(e => console.log("Audio play blocked by browser:", e));
     } else {
+        document.body.classList.add('day-theme');
         setStatus('☀️', t('dayPhase'), t('dayMessage'), 'day');
     }
 }
@@ -355,6 +365,7 @@ function handleGameEnd(winner, reason) {
     addLog(`${t('gameEnd')} - ${winnerText} ${reason}`, 'system');
 
     revealAllRoles();
+    gameEnded();
 }
 
 // ==================== UI Functions ====================
@@ -371,7 +382,9 @@ function renderPlayers() {
         const roleClass = player.role ? player.role.toLowerCase() : 'hidden';
 
         card.innerHTML = `
-            <span class="player-icon">${icon}</span>
+            <div class="player-icon-wrapper">
+                <span class="player-icon">${icon}</span>
+            </div>
             <div class="player-name">${player.name}</div>
             <span class="player-role ${roleClass}">${roleName}</span>
         `;
@@ -412,7 +425,7 @@ function unhighlightPlayer(playerName) {
 }
 
 function setStatus(icon, title, message, statusClass) {
-    statusIcon.textContent = icon;
+    phaseIconBig.textContent = icon;
     statusTitle.textContent = title;
     statusMessage.textContent = message;
 
