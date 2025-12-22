@@ -62,14 +62,14 @@
     <properties>
         <revision>1.0.4-SNAPSHOT</revision>
         <java.version>17</java.version>
-        <spotless.version>2.46.1</spotless.version>
+        <spotless.version>3.1.0</spotless.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
-        <flatten-maven-plugin.version>1.5.0</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <maven.deploy.skip>false</maven.deploy.skip>
-        <central.publishing.maven.version>0.7.0</central.publishing.maven.version>
+        <central.publishing.maven.version>0.9.0</central.publishing.maven.version>
     </properties>
 
     <dependencyManagement>
@@ -77,7 +77,7 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-bom</artifactId>
-                <version>1.52.0</version>
+                <version>1.57.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -85,7 +85,7 @@
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>33.4.8-jre</version>
+                <version>33.5.0-jre</version>
             </dependency>
 
             <!-- Reactor Core for Flux/Mono -->
@@ -106,7 +106,7 @@
             <dependency>
                 <groupId>com.aliyun</groupId>
                 <artifactId>bailian20231229</artifactId>
-                <version>2.6.1</version>
+                <version>2.6.2</version>
             </dependency>
 
             <!-- OpenAI Java SDK -->
@@ -120,7 +120,7 @@
             <dependency>
                 <groupId>com.google.genai</groupId>
                 <artifactId>google-genai</artifactId>
-                <version>1.28.0</version>
+                <version>1.32.0</version>
             </dependency>
 
             <!-- Anthropic Java SDK -->
@@ -134,20 +134,20 @@
             <dependency>
                 <groupId>io.modelcontextprotocol.sdk</groupId>
                 <artifactId>mcp</artifactId>
-                <version>0.14.1</version>
+                <version>0.17.0</version>
             </dependency>
 
             <!-- Jackson for JSON serialization/deserialization -->
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
-                <version>2.16.1</version>
+                <version>2.20.1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-annotations</artifactId>
-                <version>2.16.1</version>
+                <version>2.20</version>
             </dependency>
 
             <!-- Jackson JSON Schema module for structured output -->
@@ -168,7 +168,7 @@
             <dependency>
                 <groupId>io.qdrant</groupId>
                 <artifactId>client</artifactId>
-                <version>1.15.0</version>
+                <version>1.16.2</version>
             </dependency>
 
             <!-- Milvus Java SDK -->
@@ -182,7 +182,7 @@
             <dependency>
                 <groupId>org.apache.pdfbox</groupId>
                 <artifactId>pdfbox</artifactId>
-                <version>3.0.3</version>
+                <version>3.0.6</version>
             </dependency>
 
             <!-- Apache POI for Word document processing -->
@@ -196,7 +196,12 @@
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp</artifactId>
-                <version>4.12.0</version>
+                <version>5.3.2</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp-jvm</artifactId>
+                <version>5.3.2</version>
             </dependency>
 
             <!-- Socket.IO Client for WebSocket communication -->
@@ -210,7 +215,7 @@
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-webflux</artifactId>
-                <version>6.1.8</version>
+                <version>7.0.2</version>
             </dependency>
 
             <!-- Spring Boot AutoConfiguration -->
@@ -251,7 +256,7 @@
             <dependency>
                 <groupId>io.github.a2asdk</groupId>
                 <artifactId>a2a-java-sdk-client</artifactId>
-                <version>0.3.2.Final</version>
+                <version>0.3.3.Final</version>
             </dependency>
             <dependency>
                 <groupId>io.github.a2asdk</groupId>
@@ -311,7 +316,7 @@
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>mockwebserver</artifactId>
-                <version>4.12.0</version>
+                <version>5.3.2</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
@@ -366,7 +371,8 @@
                     <!-- define a language-specific format -->
                     <java>
                         <removeUnusedImports />
-                        <removeWildcardImports />
+                        <forbidWildcardImports />
+                        <formatAnnotations />
                         <importOrder />
                         <!-- apply a specific flavor of google-java-format and reflow long strings -->
                         <googleJavaFormat>
