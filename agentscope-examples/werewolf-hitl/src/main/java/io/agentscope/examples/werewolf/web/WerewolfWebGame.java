@@ -27,12 +27,14 @@ import io.agentscope.core.ReActAgent;
 import io.agentscope.core.agent.AgentBase;
 import io.agentscope.core.agent.user.UserAgent;
 import io.agentscope.core.formatter.dashscope.DashScopeMultiAgentFormatter;
+import io.agentscope.core.formatter.openai.OpenAIMultiAgentFormatter;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.model.DashScopeChatModel;
 import io.agentscope.core.model.GenerateOptions;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.pipeline.MsgHub;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.examples.werewolf.WerewolfGameConfig;
@@ -77,7 +79,7 @@ public class WerewolfWebGame {
     private final WebUserInput userInput;
     private final Role selectedHumanRole;
 
-    private DashScopeChatModel model;
+    private OpenAIChatModel model;
     private GameState gameState;
     private Player humanPlayer;
 
@@ -118,15 +120,16 @@ public class WerewolfWebGame {
 
     public void start() throws Exception {
         emitter.emitSystemMessage(messages.getInitializingGame());
-
-        String apiKey = System.getenv("DASHSCOPE_API_KEY");
+        String apiKey = System.getenv("IFLOW_API_KEY");
+        String baseUrl = "https://apis.iflow.cn/v1";
         model =
-                DashScopeChatModel.builder()
+                OpenAIChatModel.builder()
+                        .baseUrl(baseUrl)
                         .apiKey(apiKey)
-                        .enableThinking(true)
+//                        .enableThinking(true)
                         .defaultOptions(GenerateOptions.builder().thinkingBudget(512).build())
                         .modelName(WerewolfGameConfig.DEFAULT_MODEL)
-                        .formatter(new DashScopeMultiAgentFormatter())
+                        .formatter(new OpenAIMultiAgentFormatter())
                         .stream(false)
                         .build();
 
