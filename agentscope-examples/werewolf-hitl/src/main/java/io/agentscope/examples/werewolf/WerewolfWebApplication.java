@@ -18,6 +18,8 @@ package io.agentscope.examples.werewolf;
 import java.io.IOException;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.env.Environment;
 
 /**
  * Spring Boot application for Werewolf game web interface.
@@ -38,10 +40,12 @@ public class WerewolfWebApplication {
         System.out.println("          Werewolf Game - Web Interface");
         System.out.println("=".repeat(60));
 
-        SpringApplication.run(WerewolfWebApplication.class, args);
+        ConfigurableApplicationContext context = SpringApplication.run(WerewolfWebApplication.class, args);
+
+        Environment env = context.getEnvironment();
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.println("  Server started! Open http://localhost:8080 in your browser");
+        System.out.println("  Server started! Open http://localhost:"+env.getProperty("server.port")+" in your browser");
         System.out.println("=".repeat(60) + "\n");
     }
 }
