@@ -1,85 +1,98 @@
+<!--
+  ~ Copyright 2024-2026 the original author or authors.
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+-->
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgentScope Werewolf</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐺</text></svg>">
+    <title>狼人杀 - 实时对战</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div class="lang-switcher">
-        <button onclick="setLanguage('en_US')" class="lang-btn" id="lang-en_US">EN</button>
-        <button onclick="setLanguage('zh_CN')" class="lang-btn" id="lang-zh_CN">中文</button>
-    </div>
-
-    <div class="game-wrapper">
-        <!-- Left Panel: Phase Info & Players -->
-        <div class="left-panel">
-            <div class="phase-indicator">
-                <div id="phase-icon-big">🎮</div>
-                <div class="phase-text-group">
-                    <h1 id="main-game-title" data-i18n="gameTitle">Werewolf Game</h1>
-                    <div id="round-info-display">---</div>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title" data-i18n="title">狼人杀 - 实时对战</h1>
+            <div class="header-controls">
+                <div class="language-switch">
+                    <button id="lang-zh" class="lang-btn active" onclick="setLanguage('zh-CN')">中文</button>
+                    <button id="lang-en" class="lang-btn" onclick="setLanguage('en-US')">EN</button>
                 </div>
-                
-                <div class="header-controls">
-                    <button id="start-btn" onclick="startGame()">
-                        <span data-i18n="startGame">Start Game</span>
-                    </button>
-                    <button id="tts-toggle" class="secondary-btn" onclick="toggleTTS()">
-                        <span>🔊 TTS: ON</span>
-                    </button>
+                <div class="phase-info">
+                    <span id="round-info" data-i18n="waitingStart">等待开始</span>
                 </div>
             </div>
+        </header>
 
-            <div id="players-grid" class="players-grid">
-                <!-- Players will be rendered here -->
-            </div>
-        </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left: Player Grid -->
+            <section class="players-section">
+                <div class="players-grid" id="players-grid">
+                    <!-- Players will be dynamically inserted here -->
+                </div>
+            </section>
 
-        <!-- Right Panel: Status, Controls, Log -->
-        <div class="right-panel">
-            <!-- Game Status & Stats -->
-            <div id="status-card" class="card status-card">
-                <div class="status-content">
-                    <div class="status-info">
-                        <h2 id="status-title" data-i18n="waitingToStart">Waiting...</h2>
-                        <p id="status-message" data-i18n="clickStartMessage">Click the start button to begin the game.</p>
-                        
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stat-alive">0</span>
-                                <span class="stat-label" data-i18n="statAlive">Alive</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="stat-werewolves">0</span>
-                                <span class="stat-label" data-i18n="statWerewolves">Werewolves</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="stat-villagers">0</span>
-                                <span class="stat-label" data-i18n="statVillagers">Villagers</span>
-                            </div>
-                        </div>
+            <!-- Right: Info Panel -->
+            <section class="info-section">
+                <!-- Status Card -->
+                <div class="card status-card" id="status-card">
+                    <div class="status-icon" id="status-icon">🎮</div>
+                    <div class="status-text">
+                        <h3 id="status-title" data-i18n="readyStart">准备开始</h3>
+                        <p id="status-message" data-i18n="clickToStart">点击下方按钮开始游戏</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- Game Log -->
-            <div class="card log-card">
-                <div class="log-header">
-                    <h3 style="font-weight: 600;" data-i18n="gameLog">Game Log</h3>
-                    <button onclick="clearLog()" style="width: auto; padding: 4px 12px; font-size: 12px; background: var(--apple-gray); color: var(--apple-text-secondary);">Clear</button>
+                <!-- Stats Card -->
+                <div class="card stats-card">
+                    <div class="stat">
+                        <span class="stat-label" data-i18n="statsAlive">存活</span>
+                        <span class="stat-value" id="stat-alive">9</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label" data-i18n="statsWerewolves">狼人</span>
+                        <span class="stat-value werewolf" id="stat-werewolves">3</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label" data-i18n="statsVillagers">好人</span>
+                        <span class="stat-value villager" id="stat-villagers">6</span>
+                    </div>
                 </div>
-                <div id="log-content">
-                    <!-- Logs will be added here -->
-                    <div class="log-entry system" data-i18n="welcomeMessage">Welcome to the AgentScope Werewolf game!</div>
+
+                <!-- Log Card -->
+                <div class="card log-card">
+                    <h3 data-i18n="logTitle">💬 游戏日志</h3>
+                    <div class="log-content" id="log-content">
+                        <div class="log-entry system" data-i18n="logWaiting">等待游戏开始...</div>
+                    </div>
                 </div>
-            </div>
-        </div>
+
+                <!-- Control Bar -->
+                <div class="control-bar">
+                    <button class="btn btn-primary" id="start-btn" onclick="startGame()">
+                        <span data-i18n="startGame">🎮 开始游戏</span>
+                    </button>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <script src="js/i18n.js"></script>
-    <script src="js/app.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/app.js"></script>
 </body>
 </html>
