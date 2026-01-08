@@ -135,7 +135,7 @@ public class WerewolfWebGame {
                         .baseUrl(baseUrl)
                         .apiKey(apiKey)
 //                        .enableThinking(true)
-                        .defaultOptions(GenerateOptions.builder().thinkingBudget(512).build())
+                        .generateOptions(GenerateOptions.builder().thinkingBudget(512).build())
                         .modelName(WerewolfGameConfig.DEFAULT_MODEL)
                         .formatter(new OpenAIMultiAgentFormatter())
                         .stream(false)
@@ -221,6 +221,7 @@ public class WerewolfWebGame {
                                 .model(model)
                                 .memory(new InMemoryMemory())
                                 .toolkit(new Toolkit())
+                                .structuredOutputReminder(StructuredOutputReminder.PROMPT)
                                 .build();
             }
 
