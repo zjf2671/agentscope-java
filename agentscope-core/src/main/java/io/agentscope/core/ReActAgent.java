@@ -64,6 +64,7 @@ import io.agentscope.core.tool.Toolkit;
 import io.agentscope.core.util.MessageUtils;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -240,20 +241,17 @@ public class ReActAgent extends StructuredOutputCapableAgent {
 
     @Override
     protected Mono<Msg> doCall(List<Msg> msgs) {
-        // 1. Add user messages to memory first
-        if (msgs != null) {
-            msgs.forEach(memory::addMessage);
+        Set<String> pendingIds = getPendingToolUseIds();
+
+        // No pending tools -> normal processing
+        if (pendingIds.isEmpty()) {
+            addToMemory(msgs);
+            return executeIteration(0);
         }
 
-        // 2. Check if there are pending tool calls (from previous suspend or HITL stop)
-        Msg lastAssistant = findLastAssistantMsg();
-        if (lastAssistant != null && hasPendingToolUse(lastAssistant)) {
-            // Continue with acting - it will execute remaining tools or return suspended msg
-            return acting(0);
-        }
-
-        // 3. Normal execution: start a new iteration
-        return executeIteration(0);
+        // Has pending tools -> validate and add tool results
+        validateAndAddToolResults(msgs, pendingIds);
+        return hasPendingToolUse() ? acting(0) : executeIteration(0);
     }
 
     /**
@@ -273,26 +271,117 @@ public class ReActAgent extends StructuredOutputCapableAgent {
     }
 
     /**
-     * Check if the given assistant message has pending tool calls without corresponding results.
+     * Check if there are pending tool calls without corresponding results.
      *
-     * @param msg The assistant message to check
      * @return true if there are pending tool calls
      */
-    private boolean hasPendingToolUse(Msg msg) {
-        if (!msg.hasContentBlocks(ToolUseBlock.class)) {
-            return false;
-        }
-        List<ToolUseBlock> toolUses = msg.getContentBlocks(ToolUseBlock.class);
+    private boolean hasPendingToolUse() {
+        return !getPendingToolUseIds().isEmpty();
+    }
 
-        // Get all tool result IDs from memory
-        Set<String> toolResultIds =
+    /**
+     * Get the set of pending tool use IDs from the last assistant message.
+     *
+     * @return Set of tool use IDs that have no corresponding results in memory
+     */
+    private Set<String> getPendingToolUseIds() {
+        Msg lastAssistant = findLastAssistantMsg();
+        if (lastAssistant == null || !lastAssistant.hasContentBlocks(ToolUseBlock.class)) {
+            return Set.of();
+        }
+
+        Set<String> existingResultIds =
                 memory.getMessages().stream()
                         .flatMap(m -> m.getContentBlocks(ToolResultBlock.class).stream())
                         .map(ToolResultBlock::getId)
                         .collect(Collectors.toSet());
 
-        // Check if any tool use has no matching result
-        return toolUses.stream().anyMatch(tu -> !toolResultIds.contains(tu.getId()));
+        return lastAssistant.getContentBlocks(ToolUseBlock.class).stream()
+                .map(ToolUseBlock::getId)
+                .filter(id -> !existingResultIds.contains(id))
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Validate input messages when there are pending tool calls, then add to memory.
+     *
+     * <p>Validation rules:
+     * <ul>
+     *   <li>Empty input: no-op (will proceed to acting)</li>
+     *   <li>No tool results: throw error</li>
+     *   <li>Has tool results: validate IDs match pending, no duplicates</li>
+     *   <li>Partial results + text content: throw error (text only allowed when all tools
+     *       completed)</li>
+     * </ul>
+     *
+     * @param msgs The input messages to validate
+     * @param pendingIds The set of pending tool use IDs
+     * @throws IllegalStateException if validation fails
+     */
+    private void validateAndAddToolResults(List<Msg> msgs, Set<String> pendingIds) {
+        if (msgs == null || msgs.isEmpty()) {
+            return;
+        }
+
+        List<ToolResultBlock> results =
+                msgs.stream()
+                        .flatMap(m -> m.getContentBlocks(ToolResultBlock.class).stream())
+                        .toList();
+
+        if (results.isEmpty()) {
+            throw new IllegalStateException(
+                    "Cannot add messages without tool results when pending tool calls exist. "
+                            + "Pending IDs: "
+                            + pendingIds);
+        }
+
+        // Check for duplicate IDs
+        Set<String> providedIds = new HashSet<>();
+        for (ToolResultBlock r : results) {
+            if (!providedIds.add(r.getId())) {
+                throw new IllegalStateException("Duplicate tool result ID: " + r.getId());
+            }
+        }
+
+        // Check all provided IDs match pending IDs
+        Set<String> invalidIds =
+                providedIds.stream()
+                        .filter(id -> !pendingIds.contains(id))
+                        .collect(Collectors.toSet());
+        if (!invalidIds.isEmpty()) {
+            throw new IllegalStateException(
+                    "Invalid tool result IDs: " + invalidIds + ". Expected: " + pendingIds);
+        }
+
+        // Check for non-ToolResultBlock content
+        boolean hasTextContent =
+                msgs.stream()
+                        .flatMap(m -> m.getContent().stream())
+                        .anyMatch(block -> !(block instanceof ToolResultBlock));
+
+        // If only partial results provided, text content is not allowed
+        boolean isPartialResults = !providedIds.containsAll(pendingIds);
+        if (isPartialResults && hasTextContent) {
+            throw new IllegalStateException(
+                    "Cannot include text content when providing partial tool results. "
+                            + "Provided: "
+                            + providedIds
+                            + ", Pending: "
+                            + pendingIds);
+        }
+
+        msgs.forEach(memory::addMessage);
+    }
+
+    /**
+     * Add messages to memory if not null.
+     *
+     * @param msgs The messages to add
+     */
+    private void addToMemory(List<Msg> msgs) {
+        if (msgs != null) {
+            msgs.forEach(memory::addMessage);
+        }
     }
 
     // ==================== Core ReAct Loop ====================
@@ -694,7 +783,12 @@ public class ReActAgent extends StructuredOutputCapableAgent {
     }
 
     private Mono<Void> notifyActingChunk(ToolUseBlock toolUse, ToolResultBlock chunk) {
-        ActingChunkEvent event = new ActingChunkEvent(this, toolkit, toolUse, chunk);
+        ActingChunkEvent event =
+                new ActingChunkEvent(
+                        this,
+                        toolkit,
+                        toolUse,
+                        chunk.withIdAndName(toolUse.getId(), toolUse.getName()));
         return Flux.fromIterable(getSortedHooks()).flatMap(hook -> hook.onEvent(event)).then();
     }
 
@@ -824,7 +918,6 @@ public class ReActAgent extends StructuredOutputCapableAgent {
         private RAGMode ragMode = RAGMode.GENERIC;
         private RetrieveConfig retrieveConfig =
                 RetrieveConfig.builder().limit(5).scoreThreshold(0.5).build();
-        private boolean enableOnlyForUserQueries = true;
 
         private Builder() {}
 
@@ -1156,17 +1249,6 @@ public class ReActAgent extends StructuredOutputCapableAgent {
         }
 
         /**
-         * Sets whether to enable RAG only for user queries.
-         *
-         * @param enableOnlyForUserQueries If true, RAG is only triggered for user messages
-         * @return This builder instance for method chaining
-         */
-        public Builder enableOnlyForUserQueries(boolean enableOnlyForUserQueries) {
-            this.enableOnlyForUserQueries = enableOnlyForUserQueries;
-            return this;
-        }
-
-        /**
          * Sets the tool execution context for this agent.
          *
          * <p>This context will be passed to all tools invoked by this agent and can include
@@ -1269,8 +1351,7 @@ public class ReActAgent extends StructuredOutputCapableAgent {
                 case GENERIC -> {
                     // Create and add GenericRAGHook
                     GenericRAGHook ragHook =
-                            new GenericRAGHook(
-                                    aggregatedKnowledge, retrieveConfig, enableOnlyForUserQueries);
+                            new GenericRAGHook(aggregatedKnowledge, retrieveConfig);
                     hooks.add(ragHook);
                 }
                 case AGENTIC -> {
@@ -1372,14 +1453,14 @@ public class ReActAgent extends StructuredOutputCapableAgent {
          *
          * <p>This method automatically:
          * <ul>
-         *   <li>Registers skill loader tools to the toolkit
+         *   <li>Registers skill load tool to the toolkit
          *   <li>Adds the skill hook to inject skill prompts and manage skill activation
          * </ul>
          */
         private void configureSkillBox(Toolkit agentToolkit) {
             skillBox.bindToolkit(agentToolkit);
             // Register skill loader tools to toolkit
-            agentToolkit.registerTool(skillBox);
+            skillBox.registerSkillLoadTool();
 
             hooks.add(new SkillHook(skillBox));
         }
